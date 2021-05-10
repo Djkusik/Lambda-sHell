@@ -1,6 +1,7 @@
 import requests
 import json
 import sys
+import os
 import base64
 
 from termcolor import colored
@@ -12,8 +13,9 @@ class PseudoShell:
 
     messages = Message()
     FS_TRACKER_PATH = "/tmp/.sHell_tracker"
-    EXIT_CMDS = ["q", "quit", "exit"]
-    HELP_CMDS = ["!h", "!help"]
+    EXIT_CMDS = ("q", "quit", "exit")
+    HELP_CMDS = ("!h", "!help")
+    FILE_CMDS = ("!gt", "!pt")
 
 
     def __init__(self, addr, is_tracking_fs=False):
@@ -60,8 +62,11 @@ class PseudoShell:
             except EOFError:
                 print(colored("Exiting sHell!", 'cyan'))
                 sys.exit(0)
-            
-            self.handle_input(usr_input.strip())
+            try:
+                self.handle_input(usr_input.strip())
+            except Exception as err:
+                print(colored(err, "red", attrs=["bold"]))
+                continue
 
     def handle_input(self, usr_input):
         if usr_input == "":
@@ -75,12 +80,13 @@ class PseudoShell:
             #TODO Create print help
             return
 
+        if usr_input.startswith(self.FILE_CMDS):
+            self.handle_file(usr_input)
+
         if usr_input == "cd":
             self.cwd = self.lambda_home_path
             return
 
-        #TODO Get/Put file
-        
         if self.cwd != "" and self.cwd != self.lambda_home_path:
             cmd = "cd " + self.cwd + " && " + usr_input
         else:
@@ -88,18 +94,38 @@ class PseudoShell:
         status, output = self.send_command(cmd)
 
         if status == Status.EXCEPTION:
-            print(colored("[!] Lambda Handler encountered an unexpected exception while handling the command:", 'red'))
-            print(colored(output, ''))
+            self.print_exception(output)
             return
 
-        print(self.decode_output(output))
+        print(output.decode('ascii'))
 
         #TODO CWD Tracking
-        
-    def decode_output(self, output):
-        if type(output) is bytes:
-            output = str(output)[2:-1]
-        return output
+
+    def init_shell(self):
+        usr = self.get_user()
+        cwd = self.get_pwd()
+        return usr, cwd
+
+    def get_user(self):
+        status, output = self.send_command("whoami")
+        if status == Status.OK:
+            usr = output.rstrip()
+        else:
+            usr = ""
+            print(colored("[-] Failed to get user name", "yellow"))
+        return usr
+
+    def get_pwd(self):
+        if not self.cwd:
+            cmd = "pwd"
+
+        status, output = self.send_command(cmd)
+        if status == Status.OK:
+            cwd = output.rstrip()
+        else:
+            cwd = ""
+            print(colored("[-] Failed to get Lambda initial path", "yellow"))
+        return cwd
 
     def get_lambda_name(self):
         if "/" not in self.addr:
@@ -115,39 +141,78 @@ class PseudoShell:
         session = requests.Session()
         return session
 
-    def init_shell(self):
-        usr = self.get_user()
-        cwd = self.get_pwd()
-        return usr, cwd
+    def handle_file(self, usr_input):
+        args = usr_input.split(" ")
+        if len(args) != 3:
+            if args[0].startswith("!gt"):
+                print(colored(f"[-] Usage `!gt <lambda-path> <local-path>`", "yellow"))
+            elif args[0].startswith("!pt"):
+                print(colored(f"[-] Usage `!pt <local-path> <lambda-path>`", "yellow"))
+            return
 
-    def get_user(self):
-        status, output = self.send_command("whoami")
-        if status == Status.OK:
-            usr = output.rstrip()
+        if args[0] == "!gt":
+            self.getfile(args[1], args[2])
+        elif args[0] == '!pt':
+            self.putfile(args[1], args[2])
         else:
-            usr = ""
-            print(colored("[-] Failed to get user name", 'yellow'))
-        return usr
+            print(colored("[-] handle_file - First argument need to be !gt or !pt", "yellow"))
+            return
 
-    def get_pwd(self):
-        if not self.cwd:
-            cmd = "pwd"
-
-        status, output = self.send_command(cmd)
-        if status == Status.OK:
-            cwd = output.rstrip()
+    def getfile(self, lambda_path, local_path):
+        if os.path.isabs(lambda_path):
+            path = lambda_path
         else:
-            cwd = ""
-            print(colored("[-] Failed to get Lambda initial path", 'yellow'))
-        return cwd
+            path = self.cwd + lambda_path
+        print(colored(f"Downloading file from {path} ...", "cyan"))
+        result, output = self.send_getfile_command(path)
+
+        if result == Status.ERR:
+            print(colored(output, "red"))
+
+        elif result == Status.EXCEPTION:
+            self.print_exception()
+            
+        else:
+            to_decompress = False
+
+            if result == Status.OK:
+                write_mode = "w"
+                output = output.decode("ascii")
+
+            elif result == Status.OK_ZIP:   #TODO decompression code
+                to_decompress = True
+                write_mode = "wb"
+
+            elif result == Status.OK_BIN:
+                write_mode = "wb"
+
+            try:
+                writefile(local_path, write_mode, output)
+            except IOError:
+                print(colored(f"[!] Couldn't save file path {local_path}", "red"))
+                return
+            
+            print(colored(f"Copied {lambda_path} from Lambda to {local_path}", "green"))
+
+    def putfile(self)
+        pass
 
     def send_command(self, cmd):
-        data = messages.command_message(cmd)
-        try:
-            response = self.session.post(self.addr, json=data)
-        if not response:
-            raise CommandException(f"[!] Didn"t get response from the Lambda {self.addr}")
+        data = self.messages.command_message(cmd)
+        return self.send_request(data)
 
+    def send_getfile_command(self, path):
+        data = self.messages.getfile_message(path)
+        return self.send_request(data)
+
+    def send_putfile_command(self, path, content):
+        data = self.messages.putfile_message(path, content)
+        return self.send_request(data)
+
+    def send_request(self, data):
+        response = self.session.post(self.addr, json=data)
+        if not response:
+            raise CommandException(f"[!] Didn't get response from the Lambda {self.addr}")
         try:
             response_json = json.loads(resp.text)
         except json.decoder.JSONDecodeError as err:
@@ -186,3 +251,7 @@ class PseudoShell:
             print(colored("Lambda Filesystem state from previous session preserved", "cyan"))
         elif self.fs_state != FSState.EXCEPTION_FS:
             print(colored("Lambda Filesystem reset / First time running with this Lambda", "yellow"))
+
+    def print_exception(self, output):
+        print(colored("[!] Lambda Handler encountered an unexpected exception while handling the command:", "red"))
+        print(colored(output, ''))
