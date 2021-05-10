@@ -16,7 +16,7 @@ ARGS = "args"
 
 
 def handler(event, context):
-    print("[+] NAME is starting")
+    print("[+] LaRE is starting")
 
     try:
         action, data = parse_event(event)
