@@ -1,5 +1,6 @@
 import argparse
 import sys
+import tarfile
 
 from enum import Enum
 
@@ -9,7 +10,7 @@ class Status(Enum):
     ERR = 2
     EXCEPTION = 3
     OK_BIN = 4
-    OK_ZIP = 5
+    OK_BZ2 = 5
 
 
 class FSState(Enum):
@@ -21,6 +22,7 @@ class FSState(Enum):
 
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))
+get_bz2_path = lambda path: "./" + os.path.basename(path) + ".bz2"
 
 
 def parse_args():
@@ -36,6 +38,14 @@ def parse_args():
     return args.addr, args.fs
 
 
+def check_type(path):
+    with open(path, "rb") as file:
+        if is_binary_string(file.read(1024)):
+            return "rb"
+        else:
+            return "r"
+
+
 def writefile(path, mode, data):
     with open(path, mode) as f:
         f.write(data)
@@ -44,3 +54,13 @@ def writefile(path, mode, data):
 def readfile(path, mode):
     with open(path, mode) as f:
         return f.read()
+
+
+def create_compressed_file(in_path, out_path):
+    with tarfile.open(out_path, "w:bz2") as bz2:
+        bz2.add(in_path, arcname=os.path.basename(in_path))
+
+
+def extract_bz2(in_path, out_path):
+    with tarfile.open(in_path, "r:bz2") as bz2:
+        bz2.extractall(path=out_path)

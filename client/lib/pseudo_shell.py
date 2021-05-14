@@ -16,6 +16,8 @@ class PseudoShell:
     EXIT_CMDS = ("q", "quit", "exit")
     HELP_CMDS = ("!h", "!help")
     FILE_CMDS = ("!gt", "!pt")
+    MAX_PAYLOAD_SIZE = 6291456
+    MAX_BODY_SIZE = MAX_PAYLOAD_SIZE - 500
 
 
     def __init__(self, addr, is_tracking_fs=False):
@@ -97,7 +99,7 @@ class PseudoShell:
             self.print_exception(output)
             return
 
-        print(output.decode('ascii'))
+        print(output.decode('utf-8'))
 
         #TODO CWD Tracking
 
@@ -170,17 +172,18 @@ class PseudoShell:
             print(colored(output, "red"))
 
         elif result == Status.EXCEPTION:
-            self.print_exception()
+            self.print_exception(output)
             
         else:
             to_decompress = False
 
             if result == Status.OK:
                 write_mode = "w"
-                output = output.decode("ascii")
+                output = output.decode("utf-8")
 
-            elif result == Status.OK_ZIP:   #TODO decompression code
+            elif result == Status.OK_BZ2:
                 to_decompress = True
+                local_path += ".bz2"
                 write_mode = "wb"
 
             elif result == Status.OK_BIN:
@@ -191,11 +194,67 @@ class PseudoShell:
             except IOError:
                 print(colored(f"[!] Couldn't save file path {local_path}", "red"))
                 return
+        
+            if to_decompress:
+                try:
+                    extract_bz2(local_path, local_path[:-4])
+                    print(colored(f"Successfully decompressed file {local_path} to {local_path[:-4]}", "green"))
+                except Exception as err:
+                    print(colored(f"[!] Couldn't decompress obtained file\n{err}", "red"))
             
             print(colored(f"Copied {lambda_path} from Lambda to {local_path}", "green"))
 
-    def putfile(self)
-        pass
+    def putfile(self, local_path, lambda_path):
+        if not os.path.exists(local_path):
+            print(colored(f"[-] putfile - file {local_path} doesn't exist", "yellow"))
+            return
+
+        try:
+            mode = check_type(local_path)
+            if_compressed = False
+            content = readfile(local_path, mode)
+
+            if mode == "r":
+                content = content.encode("utf-8")
+            encoded = base64.b64encode(content)
+
+            if len(encoded) < self.MAX_BODY_SIZE:
+                result, output = self.send_putfile_command(lambda_path, encoded, mode, if_compressed)
+            else:
+                content_len = len(content)
+                encoded_len = len(encoded)
+                del content, encoded
+
+                bz2_path = get_bz2_path(local_path)
+                create_compressed_file(path, bz2_path)
+                if_compressed = True
+
+                content = readfile(bz2_path, "rb")
+                os.unlink(bz2_path)
+
+                encoded = base64.b64encode(content)
+                if len(encoded) < self.MAX_BODY_SIZE:
+                    result, output = self.send_putfile_command(lambda_path, encoded, "rb", if_compressed)
+                else:
+                    print(colored(f"[-] putfile - file {local_path} too big - Size: {content_len} | Encoded size: {encoded_len} | Compressed size: {len(content)} | Encoded compressed size: {len(encoded)}", "yellow"))
+                    return
+            except UnicodeDecodeError:
+                print(colored(f"[!] putfile - file {local_path} failed with UnicodeDecodeError", "red"))
+                return
+            except IOError as err:
+                print(colored(f"[!] putfile - file {local_path} failed with IOError: {repr(err)}", "red"))
+                return
+            
+        if result == Status.ERR:
+            print(colored(output, "red"))
+
+        elif result == Status.EXCEPTION:
+            self.print_exception(output)
+
+        if is_compressed:
+            print(colored(f"Compressed file {local_path} and copied to {lambda_path} on the Lambda", "green"))
+        else:
+            print(colored(f"File {local_path} copied to {lambda_path} on the Lambda", "green"))
 
     def send_command(self, cmd):
         data = self.messages.command_message(cmd)
@@ -205,8 +264,8 @@ class PseudoShell:
         data = self.messages.getfile_message(path)
         return self.send_request(data)
 
-    def send_putfile_command(self, path, content):
-        data = self.messages.putfile_message(path, content)
+    def send_putfile_command(self, path, content, mode, is_compressed):
+        data = self.messages.putfile_message(path, content, mode, is_compressed)
         return self.send_request(data)
 
     def send_request(self, data):
@@ -219,7 +278,7 @@ class PseudoShell:
             raise JSONDecodeError("[!] send_command - Couldn't decode JSON response from Lambda")
 
         status, output_b64 = self.parse_response(response_json)
-        output = base64.b64decode(bytes(output_b64, "ascii"))
+        output = base64.b64decode(output_b64.encode("utf-8"))
         return status, output
         
     def parse_response(self, response_json):

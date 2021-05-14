@@ -5,10 +5,24 @@ class Messages:
 
 
     def command_message(self, cmd):
-        return {OP: "cmd", ARGS: ["bash", "-c", cmd]}
+        return {
+            OP: "cmd", 
+            ARGS: ["bash", "-c", cmd]
+        }
 
     def getfile_message(self, path):
-        return {OP: "getfile", ARGS: path}
+        return {
+            OP: "getfile", 
+            ARGS: path
+        }
 
-    def putfile_message(self, path, content):
-        return {OP: "putfile", ARGS: {"path": path, "content": content}}
+    def putfile_message(self, path, content, mode, is_compressed):
+        return {
+            OP: "putfile", 
+            ARGS: {
+                "path": path, 
+                "content": content, 
+                "mode": mode, 
+                "is_compressed": is_compressed
+            }
+        }
