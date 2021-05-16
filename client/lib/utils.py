@@ -1,6 +1,7 @@
 import argparse
 import sys
 import tarfile
+import os
 
 from enum import Enum
 
@@ -47,13 +48,13 @@ def check_type(path):
 
 
 def writefile(path, mode, data):
-    with open(path, mode) as f:
-        f.write(data)
+    with open(path, mode) as file:
+        file.write(data)
 
 
 def readfile(path, mode):
-    with open(path, mode) as f:
-        return f.read()
+    with open(path, mode) as file:
+        return file.read()
 
 
 def create_compressed_file(in_path, out_path):

@@ -11,11 +11,12 @@ from .utils import *
 
 class PseudoShell:
 
-    messages = Message()
+    messages = Messages()
     FS_TRACKER_PATH = "/tmp/.sHell_tracker"
     EXIT_CMDS = ("q", "quit", "exit")
     HELP_CMDS = ("!h", "!help")
     FILE_CMDS = ("!gt", "!pt")
+    NOT_TRACKED = ("||", "&&")
     MAX_PAYLOAD_SIZE = 6291456
     MAX_BODY_SIZE = MAX_PAYLOAD_SIZE - 500
 
@@ -52,7 +53,7 @@ class PseudoShell:
             if self.is_tracking_fs:
                 self.fs_state = self.verify_fs_state()
                 self.print_fs_state_info()
-                self.is_tracking_fs = is_tracking_fs and (self.fs_state.NEW_FS_CONT or self.fs_state.SAME_FS)
+                self.is_tracking_fs = self.is_tracking_fs and (self.fs_state.NEW_FS_CONT or self.fs_state.SAME_FS)
 
             prompt = colored(self.prefix, "green") + colored(self.cwd, "blue") + "$ "
 
@@ -84,6 +85,7 @@ class PseudoShell:
 
         if usr_input.startswith(self.FILE_CMDS):
             self.handle_file(usr_input)
+            return
 
         if usr_input == "cd":
             self.cwd = self.lambda_home_path
@@ -101,7 +103,35 @@ class PseudoShell:
 
         print(output.decode('utf-8'))
 
-        #TODO CWD Tracking
+        self.track_cwd(usr_input, (status != Status.OK))
+
+
+    def track_cwd(self, usr_input, err):
+        if ("cd" not in usr_input) or err:
+            return
+
+        if any(nt in usr_input for nt in self.NOT_TRACKED):
+            print(colored("[-] Cannot track commands with '||' or '&&', current working directory not changed", "yellow"))
+            return
+        
+        split_input = usr_input.split(" ")
+        paths = [split_input[i + 1] for i, part in enumerate(split_input) if part == "cd"]
+
+        for path in paths:
+            if path[-1:] == ";":
+                if path[-2:] != "\;":
+                    path = path[:-1]
+
+            if os.path.isabs(path):
+                self.cwd = os.path.abspath(path)
+            else:
+                if path.startswith("~"):
+                    path = self.lambda_home_path + path[1:]
+                    self.cwd = os.path.abspath(path)
+                else:
+                    path = self.cwd + "/" + path
+                    self.cwd = os.path.abspath(path)
+
 
     def init_shell(self):
         usr = self.get_user()
@@ -164,7 +194,7 @@ class PseudoShell:
         if os.path.isabs(lambda_path):
             path = lambda_path
         else:
-            path = self.cwd + lambda_path
+            path = self.cwd + "/" + lambda_path
         print(colored(f"Downloading file from {path} ...", "cyan"))
         result, output = self.send_getfile_command(path)
 
@@ -191,8 +221,8 @@ class PseudoShell:
 
             try:
                 writefile(local_path, write_mode, output)
-            except IOError:
-                print(colored(f"[!] Couldn't save file path {local_path}", "red"))
+            except IOError as err:
+                print(colored(f"[!] Couldn't save file path {local_path} - IOError: {repr(err)}", "red"))
                 return
         
             if to_decompress:
@@ -226,8 +256,9 @@ class PseudoShell:
                 del content, encoded
 
                 bz2_path = get_bz2_path(local_path)
-                create_compressed_file(path, bz2_path)
-                if_compressed = True
+                create_compressed_file(local_path, bz2_path)
+                is_compressed = True
+                lambda_path += ".bz2"
 
                 content = readfile(bz2_path, "rb")
                 os.unlink(bz2_path)
@@ -238,12 +269,12 @@ class PseudoShell:
                 else:
                     print(colored(f"[-] putfile - file {local_path} too big - Size: {content_len} | Encoded size: {encoded_len} | Compressed size: {len(content)} | Encoded compressed size: {len(encoded)}", "yellow"))
                     return
-            except UnicodeDecodeError:
-                print(colored(f"[!] putfile - file {local_path} failed with UnicodeDecodeError", "red"))
-                return
-            except IOError as err:
-                print(colored(f"[!] putfile - file {local_path} failed with IOError: {repr(err)}", "red"))
-                return
+        except UnicodeDecodeError:
+            print(colored(f"[!] putfile - file {local_path} failed with UnicodeDecodeError", "red"))
+            return
+        except IOError as err:
+            print(colored(f"[!] putfile - file {local_path} failed with IOError: {repr(err)}", "red"))
+            return
             
         if result == Status.ERR:
             print(colored(output, "red"))
@@ -273,7 +304,7 @@ class PseudoShell:
         if not response:
             raise CommandException(f"[!] Didn't get response from the Lambda {self.addr}")
         try:
-            response_json = json.loads(resp.text)
+            response_json = json.loads(response.text)
         except json.decoder.JSONDecodeError as err:
             raise JSONDecodeError("[!] send_command - Couldn't decode JSON response from Lambda")
 
@@ -283,10 +314,10 @@ class PseudoShell:
         
     def parse_response(self, response_json):
         if "result" not in response_json:
-            raise LackOfResult(f"[!] {sys._getframe(1).f_code.co_name} - Lack of "result" field in Lambda response")
+            raise LackOfResult(f"[!] {sys._getframe(1).f_code.co_name} - Lack of 'result' field in Lambda response")
 
         if "output" not in response_json:
-            raise LackOfOutput(f"[!] {sys._getframe(1).f_code.co_name} - Lack of "output" field in Lambda response")
+            raise LackOfOutput(f"[!] {sys._getframe(1).f_code.co_name} - Lack of 'output' field in Lambda response")
 
         return Status(response_json["result"]), response_json["output"]
 

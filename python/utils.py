@@ -25,6 +25,11 @@ ARGS = "args"
 MAX_PAYLOAD_SIZE = 6291456
 MAX_BODY_SIZE = MAX_PAYLOAD_SIZE - 500
 
+read_to_write = {
+    "r": "w",
+    "rb": "wb"
+}
+
 
 textchars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
 is_binary_string = lambda bytes: bool(bytes.translate(None, textchars))
@@ -46,9 +51,14 @@ def readfile(path, mode):
 
 def writefile(path, mode, data):
     with open(path, mode) as file:
-        f.write(data)
+        file.write(data)
 
 
 def create_compressed_file(in_path, out_path):
     with tarfile.open(out_path, "w:bz2") as bz2:
         bz2.add(in_path, arcname=os.path.basename(in_path))
+
+
+def extract_bz2(in_path, out_path):
+    with tarfile.open(in_path, "r:bz2") as bz2:
+        bz2.extractall(path=out_path)

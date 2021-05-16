@@ -3,7 +3,6 @@ import os
 import subprocess
 import base64
 
-from enum import Enum
 from .utils import *
 
 
@@ -44,7 +43,7 @@ def parse_event(event):
         elif body[OP] == PUT_FILE_OP:
             action = PUT_FILE_OP
         else:
-            raise Exception(f"[!] parse_event - Unknown operation {body[ACTION]}")
+            raise Exception(f"[!] parse_event - Unknown operation {body[OP]}")
         return action, body[ARGS]
     else:
         raise Exception(f"[!] parse_event - Lack of operation and / or args f{body}")
@@ -99,26 +98,40 @@ def run_getfile(path):
 def run_putfile(args):
     path = args["path"]
     decoded = base64.b64decode(args["content"].encode("utf-8"))
-    mode = args["mode"]
+    mode = read_to_write[args["mode"]]
     is_compressed = args["is_compressed"]
 
-    # TODO rest of function
+    if mode == "w":
+        decoded = decoded.decode("utf-8")
+    
+    try:
+        writefile(path, mode, decoded)
+    except IOError as err:
+        raise Exception(f"[!] run_putfile - file {path} failed with IOError: {repr(err)}")
+
+    if is_compressed:
+        try:
+            extract_bz2(path, path[:4])
+        except Exception as err:
+            raise Exception(f"[!] run_putfile - something went wrong during decompression: {repr(err)}\nCompressed file was saved: {path}")
+        return Status.OK, f"File successfully saved: {path}\nFile successfully decompressed: {path[:4]}"
+
+    return Status.OK, f"File successfully saved: {path}"
 
 
 def construct_response(resp_type, status, output):
     if resp_type == ResponseType.CMD:
         output = base64.b64encode(output).decode("utf-8")
     elif resp_type == ResponseType.GETFILE:
-        continue
-    elif resp_type == ResponseType.PUTFILE:
         pass
-    elif resp_type == ResponseType.ERR:
+    elif resp_type == ResponseType.PUTFILE or ResponseType.ERR:
         output = base64.b64encode(output.encode("utf-8")).decode("utf-8")
+
     response = {
         "statusCode": 200,
-        "headers" {
+        "headers": {
             "Content-Type": "application/json"
-        }
+        },
         "body": json.dumps({
             "status": status.value,
             "output": output
