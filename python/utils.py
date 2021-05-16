@@ -1,6 +1,7 @@
 import tarfile
 import os
 
+from enum import Enum
 
 class Status(Enum):
     OK = 1
