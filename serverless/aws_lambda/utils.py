@@ -20,11 +20,13 @@ class ResponseType(Enum):
 
 OP = "action"
 CMD_OP = "cmd"
+SPECIAL_OP = "special"
 GET_FILE_OP = "getfile"
 PUT_FILE_OP = "putfile"
 ARGS = "args"
 MAX_PAYLOAD_SIZE = 6291456
 MAX_BODY_SIZE = MAX_PAYLOAD_SIZE - 500
+SPECIAL_CMDS = ("curl")
 
 read_to_write = {
     "r": "w",

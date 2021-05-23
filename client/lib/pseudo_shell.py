@@ -16,6 +16,7 @@ class PseudoShell:
     EXIT_CMDS = ("q", "quit", "exit")
     HELP_CMDS = ("!h", "!help")
     FILE_CMDS = ("!gt", "!pt")
+    SPECIAL_CMDS = ("!curl")
     NOT_TRACKED = ("||", "&&")
     MAX_PAYLOAD_SIZE = 6291456
     MAX_BODY_SIZE = MAX_PAYLOAD_SIZE - 500
@@ -40,7 +41,7 @@ class PseudoShell:
             sys.exit(1)
 
         self.lambda_home_path = self.cwd
-        self.prefix = self.usr + "@" + self.name + ":~/"
+        self.prefix = self.usr + "@" + self.name + ":~"
         self.fs_state = self.verify_fs_state()
         self.print_fs_state_info()
         self.is_tracking_fs = is_tracking_fs and (self.fs_state.NEW_FS_CONT or self.fs_state.SAME_FS)
@@ -55,7 +56,7 @@ class PseudoShell:
                 self.print_fs_state_info()
                 self.is_tracking_fs = self.is_tracking_fs and (self.fs_state.NEW_FS_CONT or self.fs_state.SAME_FS)
 
-            prompt = colored(self.prefix, "green") + colored(self.cwd, "blue") + "$ "
+            prompt = colored(self.prefix, "green", attrs=["bold"]) + colored(self.cwd, "blue", attrs=["bold"]) + "$ "
 
             try:
                 usr_input = input(prompt)
@@ -87,6 +88,10 @@ class PseudoShell:
             self.handle_file(usr_input)
             return
 
+        if usr_input.startswith(self.SPECIAL_CMDS):
+            self.handle_special(usr_input[1:])
+            return
+
         if usr_input == "cd":
             self.cwd = self.lambda_home_path
             return
@@ -98,10 +103,10 @@ class PseudoShell:
         status, output = self.send_command(cmd)
 
         if status == Status.EXCEPTION:
-            self.print_exception(output)
+            self.print_exception(output.decode("utf-8"))
             return
 
-        print(output.decode('utf-8'))
+        print(output.decode("utf-8"))
 
         self.track_cwd(usr_input, (status != Status.OK))
 
@@ -134,8 +139,8 @@ class PseudoShell:
 
 
     def init_shell(self):
-        usr = self.get_user()
-        cwd = self.get_pwd()
+        usr = self.get_user().decode("utf-8")
+        cwd = self.get_pwd().decode("utf-8")
         return usr, cwd
 
     def get_user(self):
@@ -299,6 +304,16 @@ class PseudoShell:
         data = self.messages.putfile_message(path, content, mode, is_compressed)
         return self.send_request(data)
 
+    def handle_special(self, cmd):
+        data = self.messages.special_message(cmd)
+        status, output = self.send_request(data)
+        
+        if status == Status.EXCEPTION:
+            self.print_exception(output.decode("utf-8"))
+            return
+
+        print(output.decode("utf-8"))
+
     def send_request(self, data):
         response = self.session.post(self.addr, json=data)
         if not response:
@@ -344,4 +359,4 @@ class PseudoShell:
 
     def print_exception(self, output):
         print(colored("[!] Lambda Handler encountered an unexpected exception while handling the command:", "red"))
-        print(colored(output, ''))
+        print(colored(output, "red"))

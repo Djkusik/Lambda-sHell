@@ -10,6 +10,12 @@ class Messages:
             self.ARGS: ["bash", "-c", cmd]
         }
 
+    def special_message(self, cmd):
+        return {
+            self.OP: "special",
+            self.ARGS: cmd
+        }
+
     def getfile_message(self, path):
         return {
             self.OP: "getfile", 
