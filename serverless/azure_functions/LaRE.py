@@ -23,23 +23,31 @@ def handler(req: func.HttpRequest) -> func.HttpResponse:
         action, data = parse_event(event)
         if action == CMD_OP:
             result, output = run_cmd(data)
-            resp_type = ResponseType.CMD
+            if result == 0:
+                result = Status.OK
+            else:
+                result = Status.ERR
+            output = base64.b64encode(output).decode("utf-8")
 
         elif action == SPECIAL_OP:
             result, output = run_special(data)
-            resp_type = ResponseType.CMD
+            if result == 0:
+                result = Status.OK
+            else:
+                result = Status.ERR
+            output = base64.b64encode(output).decode("utf-8")
 
         elif action == GET_FILE_OP:
             result, output = run_getfile(data)
-            resp_type = ResponseType.GETFILE
+            output = output.decode("utf-8")
 
         elif action == PUT_FILE_OP:
             result, output = run_putfile(data)
-            resp_type = ResponseType.PUTFILE
+            output = base64.b64encode(output.encode("utf-8")).decode("utf-8")
 
-        return construct_response(resp_type, result, output)
+        return construct_response(result, output)
     except Exception as err:
-        return construct_response(ResponseType.ERR, Status.EXCEPTION, err)
+        return construct_response(Status.EXCEPTION, base64.b64encode(str(err).encode("utf-8")).decode("utf-8"))
 
 
 def parse_event(event):
@@ -48,7 +56,7 @@ def parse_event(event):
     else:
         body = event
 
-    if OP and ARGS in body:
+    if OP in body and ARGS in body:
         if body[OP] == CMD_OP:
             action = CMD_OP
         elif body[OP] == GET_FILE_OP:
@@ -61,7 +69,7 @@ def parse_event(event):
             raise Exception(f"[!] parse_event - Unknown operation {body[OP]}")
         return action, body[ARGS]
     else:
-        raise Exception(f"[!] parse_event - Lack of operation and / or args f{body}")
+        raise Exception(f"[!] parse_event - Lack of operation and / or args {body}")
 
 
 def run_cmd(cmd):
@@ -149,20 +157,7 @@ def run_putfile(args):
     return Status.OK, f"File successfully saved: {path}"
 
 
-def construct_response(resp_type, result, output):
-    if resp_type == ResponseType.CMD:
-        if result == 0:
-            result = Status.OK
-        else:
-            result = Status.ERR
-        output = base64.b64encode(output).decode("utf-8")
-    elif resp_type == ResponseType.GETFILE:
-        output = output.decode("utf-8")
-    elif resp_type == ResponseType.PUTFILE:
-        output = base64.b64encode(output.encode("utf-8")).decode("utf-8")
-    elif resp_type == ResponseType.ERR:
-        output = base64.b64encode(str(output).encode("utf-8")).decode("utf-8")
-
+def construct_response(result, output):
     response = json.dumps({
             "result": result.value,
             "output": output

@@ -11,13 +11,6 @@ class Status(Enum):
     OK_BZ2 = 5
 
 
-class ResponseType(Enum):
-    CMD = 1
-    GETFILE = 2
-    PUTFILE = 3
-    ERR = 4
-
-
 OP = "action"
 CMD_OP = "cmd"
 SPECIAL_OP = "special"
