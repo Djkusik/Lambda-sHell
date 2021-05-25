@@ -11,14 +11,14 @@
 ```
 # Make a hell for a Lambda! 
 
-A pseudo sHell for communicating with serverless container (by re-invoking commands) - AWS & GCP for now!
+A pseudo sHell for communicating with serverless container (by re-invoking commands) - AWS & GCP & Azure for now!
 
 Research, exploit, have fun!
 
 #TODO demo GIF
 
 # Features
-- AWS and GCP compatible!
+- AWS, GCP and Azure compatible!
 - Supports tracking current working directory
 - File transfer between machine and the Lambda
 - Tracking of system reset
@@ -52,3 +52,9 @@ Usage:
   python3 sHell.py <lambda-addr> [-fs]
 ```
 #TODO rest of README
+
+# TODO
++ Test Azure
++ CloudFlare Workers support
++ Terraforms or any other automatic build & deploy method
++ README
