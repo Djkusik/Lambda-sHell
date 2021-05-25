@@ -55,6 +55,8 @@ Usage:
 
 # TODO
 + Test Azure
++ Add NodeJS & Java
++ Add exploits & testing functions
 + CloudFlare Workers support
 + Terraforms or any other automatic build & deploy method
 + README
