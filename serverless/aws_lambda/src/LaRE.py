@@ -7,7 +7,7 @@ import urllib3
 from utils import *
 
 
-def handler(event):
+def handler(event, context):
     print("[+] LaRE is starting")
 
     try:

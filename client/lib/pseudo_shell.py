@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import requests
 import json
 import sys
@@ -81,7 +83,7 @@ class PseudoShell:
             sys.exit(0)
 
         if usr_input in self.HELP_CMDS:
-            #TODO Create print help
+            self.print_help()
             return
 
         if usr_input.startswith(self.FILE_CMDS):
@@ -246,15 +248,15 @@ class PseudoShell:
 
         try:
             mode = check_type(local_path)
-            if_compressed = False
+            is_compressed = False
             content = readfile(local_path, mode)
 
             if mode == "r":
                 content = content.encode("utf-8")
-            encoded = base64.b64encode(content)
-
+            encoded = base64.b64encode(content).decode("utf-8")
+            
             if len(encoded) < self.MAX_BODY_SIZE:
-                result, output = self.send_putfile_command(lambda_path, encoded, mode, if_compressed)
+                result, output = self.send_putfile_command(lambda_path, encoded, mode, is_compressed)
             else:
                 content_len = len(content)
                 encoded_len = len(encoded)
@@ -268,7 +270,7 @@ class PseudoShell:
                 content = readfile(bz2_path, "rb")
                 os.unlink(bz2_path)
 
-                encoded = base64.b64encode(content)
+                encoded = base64.b64encode(content).decode("utf-8")
                 if len(encoded) < self.MAX_BODY_SIZE:
                     result, output = self.send_putfile_command(lambda_path, encoded, "rb", if_compressed)
                 else:
@@ -307,7 +309,7 @@ class PseudoShell:
     def handle_special(self, cmd):
         data = self.messages.special_message(cmd)
         status, output = self.send_request(data)
-        
+
         if status == Status.EXCEPTION:
             self.print_exception(output.decode("utf-8"))
             return
@@ -360,3 +362,43 @@ class PseudoShell:
     def print_exception(self, output):
         print(colored("[!] Lambda Handler encountered an unexpected exception while handling the command:", "red"))
         print(colored(output, "red"))
+
+    def print_help(self):
+        help_string = """
+   __                 _         _                           _ _ 
+  / /  __ _ _ __ ___ | |__   __| | __ _     ___   /\  /\___| | |
+ / /  / _` | '_ ` _ \| '_ \ / _` |/ _` |   / __| / /_/ / _ \ | |
+/ /__| (_| | | | | | | |_) | (_| | (_| |   \__ \/ __  /  __/ | |
+\____/\__,_|_| |_| |_|_.__/ \__,_|\__,_|   |___/\/ /_/ \___|_|_|
+
+A pseudo sHell for communicating with serverless container
+\t # sHell on local machine.
+\t # LaRE on serverless container (Lambda, Cloud Functions, Functions)
+
+On a startup, 'whoami' and 'pwd' are executed to gain basic info about container.
+
+# ----------------------------------------------------------------------------------- #
+
+# How to use
+\t > sHell [-h] [-fs] addr
+\t > -h\tis for printing usage
+\t > -fs\tis for enabling tracking filesystem*
+\t > addr\tis URL address for connecting to the LaRE
+
+\t * Tracking filesystem means verifying if the container is the same every executed command,
+\t   by checking existance of temporary file in /tmp created on the startup
+
+# Special commands in sHell:
+\t > 'q' 'quit' 'exit'\t\t\t- to exit
+\t > '!h' '!help'\t\t\t\t- to display this message
+\t > '!gt <lambda-path> <local-path>'\t- to download file to your local machine
+\t > '!pt <local-path> <lambda-path>'\t- to upload file to the serverless container
+\t > '!curl <address>'\t\t\t- to request a resource in case of disabled original curl, uses urllib3 under the hood
+
+# Limitations:
+\t > File transfer limited to the Lambda's max request/response size (6MB). Bigger files are tried to be compressed.
+\t > Does not support environment variables
+\t > Limited support for CWD tracking.
+\t   * Usage of '||' or '&&' breaks tracking, CWD won't be changed then
+        """
+        print(help_string)
