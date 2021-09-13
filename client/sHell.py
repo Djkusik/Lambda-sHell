@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from lib.pseudo_shell import PseudoShell
 from lib.utils import parse_args
 
