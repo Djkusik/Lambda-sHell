@@ -378,7 +378,7 @@ On a startup, 'whoami' and 'pwd' are executed to gain basic info about container
 # ----------------------------------------------------------------------------------- #
 
 # How to use
-\t > sHell [-h] [-fs] addr
+\t > ./sHell.py [-h] [-fs] addr
 \t > -h\tis for printing usage
 \t > -fs\tis for enabling tracking filesystem*
 \t > addr\tis URL address for connecting to the LaRE

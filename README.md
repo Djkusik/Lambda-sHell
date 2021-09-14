@@ -42,11 +42,11 @@ Client:
 
 (optional, could be done manually) GCP Cloud Functions automatic deployment:
 * [Terraform CLI](https://learn.hashicorp.com/tutorials/terraform/install-cli)
-* [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+* [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) & [configured with application-default](https://cloud.google.com/sdk/gcloud/reference/auth/application-default) & configured project
 
 (optional, could be done manually) Azure Functions automatic deployment:
 * [Terraform CLI](https://learn.hashicorp.com/tutorials/terraform/install-cli)
-* [Azure CLI] (https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+* [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 
 ## Installation
 
@@ -72,7 +72,7 @@ Could be also done manually, by uploading ```Lambda-sHell/serverless/aws_lambda/
 ### GCP Cloud Function:
 ```bash
 cd Lambda-sHell/serverless/gcp_functions
-...
+# Edit variables.tf with your Project-ID (gcloud projects list), verify region, remember to set gcloud auth application-default login
 terraform init
 terraform apply -auto-approve
 
@@ -88,7 +88,7 @@ Could be also done manually, by uploading ```Lambda-sHell/serverless/gcp_functio
 
 ### Connecting to the Lambda:
 ```bash
-sHell <lambda-addr> [-fs]
+./sHell.py <lambda-addr> [-fs]
 ```
 # Help
 ```
@@ -107,7 +107,7 @@ On a startup, 'whoami' and 'pwd' are executed to gain basic info about container
 # ----------------------------------------------------------------------------------- #
 
 # How to use
-         > sHell [-h] [-fs] addr
+         > ./sHell.py [-h] [-fs] addr
          > -h   is for printing usage
          > -fs  is for enabling tracking filesystem*
          > addr is URL address for connecting to the LaRE
