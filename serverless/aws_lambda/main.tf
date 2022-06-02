@@ -19,7 +19,7 @@ terraform {
 
 provider "aws" {
     region  = var.aws_region
-    profile = "default" 
+    profile = var.profile
 }
 
 data "archive_file" "LaRE_AWS" {
@@ -33,7 +33,7 @@ resource "aws_lambda_function" "LaRE" {
     function_name   = "LaRE"
     filename        = "${path.module}/LaRE_AWS.zip"
 
-    runtime = "python3.9"
+    runtime = "python3.8"
     handler = "LaRE.handler"
 
     source_code_hash = data.archive_file.LaRE_AWS.output_base64sha256

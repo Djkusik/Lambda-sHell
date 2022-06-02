@@ -270,7 +270,7 @@ class PseudoShell:
 
                 encoded = base64.b64encode(content).decode("utf-8")
                 if len(encoded) < self.MAX_BODY_SIZE:
-                    result, output = self.send_putfile_command(lambda_path, encoded, "rb", if_compressed)
+                    result, output = self.send_putfile_command(lambda_path, encoded, "rb", is_compressed)
                 else:
                     print(colored(f"[-] putfile - file {local_path} too big - Size: {content_len} | Encoded size: {encoded_len} | Compressed size: {len(content)} | Encoded compressed size: {len(encoded)}", "yellow"))
                     return

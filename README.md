@@ -9,14 +9,14 @@
 ```
 # Make a hell for a Lambda! 
 
-A pseudo sHell for communicating with serverless container (by re-invoking commands) - AWS & GCP & Azure for now!
+A pseudo sHell for communicating with serverless container (by re-invoking commands) - AWS & GCP for now!
 
 Research, exploit, have fun!
 
-#TODO demo GIF
+![](img/demo.gif)
 
 # Features
-- AWS, GCP and Azure compatible!
+- AWS and GCP compatible!
 - Supports tracking current working directory
 - File transfer between machine and the Lambda
 - Tracking of system reset
@@ -27,6 +27,7 @@ Research, exploit, have fun!
 2. Verify other providers and create persistency PoCs for them too
 3. Get to know a little bit more about serverless internals
 4. Reverse shell would be pricey! Longer runtime is equal to the higher prices when using Lambda, so I want to make it as fast as possible
+5. Serverless is popular!
 # Installation 
 
 ## Dependencies
@@ -44,9 +45,6 @@ Client:
 * [Terraform CLI](https://learn.hashicorp.com/tutorials/terraform/install-cli)
 * [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) & [configured with application-default](https://cloud.google.com/sdk/gcloud/reference/auth/application-default) & configured project
 
-(optional, could be done manually) Azure Functions automatic deployment:
-* [Terraform CLI](https://learn.hashicorp.com/tutorials/terraform/install-cli)
-* [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
 
 ## Installation
 
@@ -60,7 +58,7 @@ pip3 install -r client/requirements.txt
 ### AWS Lambda:  
 ```bash
 cd Lambda-sHell/serverless/aws_lambda
-# Verify variables.tf for used AWS region and main.tf for AWS profile (using default)
+# Verify variables.tf for used AWS region and AWS profile (using default)
 terraform init
 terraform apply -auto-approve
 
@@ -80,11 +78,6 @@ terraform apply -auto-approve
 terraform destroy -auto-approve
 ```
 Could be also done manually, by uploading ```Lambda-sHell/serverless/gcp_functions/src``` content as Cloud Function and configuring HTTP trigger.
-
-### Azure Functions:
-```bash
-# TODO
-```
 
 ### Connecting to the Lambda:
 ```bash
@@ -128,3 +121,6 @@ On a startup, 'whoami' and 'pwd' are executed to gain basic info about container
          > Limited support for CWD tracking.
            * Usage of '||' or '&&' breaks tracking, CWD won't be changed then
 ```
+# Example exploitation - PoC
+
+Vulnerable functions & exploitation code for persistency  could be found [here](https://github.com/Djkusik/serverless_persistency_poc)
