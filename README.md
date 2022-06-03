@@ -124,3 +124,7 @@ On a startup, 'whoami' and 'pwd' are executed to gain basic info about container
 # Example exploitation - PoC
 
 Vulnerable functions & exploitation code for persistency  could be found [here](https://github.com/Djkusik/serverless_persistency_poc)
+
+# Inspiration
+
+Main inspiration was [SPLASH](https://github.com/twistlock/splash) - I wanted to give it a try writing my own tool. I rewritten it using OOP, also went with another method for download and upload of files and tracking CWD.
